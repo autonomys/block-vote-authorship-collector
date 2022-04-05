@@ -1,0 +1,21 @@
+{
+  "name": "@subspace/block-author-collector",
+  "version": "0.1.0",
+  "description": "Download block authors of subspace",
+  "main": "index.js",
+  "scripts": {
+    "prestart": "npm run build",
+    "start": "node dist/index.js",
+    "build": "rm -rf dist && tsc"
+  },
+  "private": true,
+  "author": "Nazar Mokrynskyi <nazar@mokrynskyi.com>",
+  "license": "Apache 2.0",
+  "dependencies": {
+    "@polkadot/api": "^7.15.1",
+    "@polkadot/types": "^7.15.1"
+  },
+  "devDependencies": {
+    "typescript": "^4.6.3"
+  }
+}
