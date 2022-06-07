@@ -1,8 +1,9 @@
-import {ApiPromise, WsProvider} from "@polkadot/api";
+import {ApiPromise, Keyring, WsProvider} from "@polkadot/api";
 import * as fs from "fs/promises";
 import {Struct, u64} from "@polkadot/types";
-import {AccountId32, Header} from "@polkadot/types/interfaces";
+import {AccountId32, EventRecord, Header} from "@polkadot/types/interfaces";
 
+const stopAtBlock = process.env.STOP_AT_BLOCK ? parseInt(process.env.STOP_AT_BLOCK, 10) : 0;
 const wsUrl = process.env.WS_URL;
 const output = process.env.OUTPUT;
 
@@ -18,7 +19,7 @@ if (!output) {
 
 interface Solution extends Struct {
     readonly public_key: AccountId32;
-    readonly reward_address?: AccountId32;
+    readonly reward_address: AccountId32;
 }
 
 interface SubPreDigest extends Struct {
@@ -54,10 +55,11 @@ async function main(wsUrl: string, output: string) {
         provider,
         types,
     });
+    const keyring = new Keyring({type: 'sr25519', ss58Format: 2254});
 
     const file = await fs.open(output, 'w');
     file.appendFile(
-        `Block number,Slot,Author,Reward address,Space according to consensus\n`,
+        `Block number,Authorship type,Slot,Plot public key,Reward address,Space according to consensus\n`,
     );
 
     let nextBlockHash = await api.rpc.chain.getBlockHash();
@@ -75,14 +77,27 @@ async function main(wsUrl: string, output: string) {
 
         const blockNumber = header.number.toNumber();
         const slot = preRuntime.slot;
-        const author = preRuntime.solution.public_key;
-        const rewardAddress = preRuntime.solution.reward_address ?? author;
+        const publicKey = preRuntime.solution.public_key;
+        const rewardAddress = preRuntime.solution.reward_address;
         const consensusSpace = solutionRangeToSpace(consensusSolutionRange);
         await file.appendFile(
-            `${blockNumber},${slot},${author},${rewardAddress},${consensusSpace}\n`,
+            `${blockNumber},Block,${slot},${publicKey},${rewardAddress},${consensusSpace}\n`,
         );
 
-        if (blockNumber === 0) {
+        let events: Array<EventRecord> = await api.query.system.events.at(nextBlockHash);
+
+        for (const record of events) {
+            const event = record.event;
+
+            if (event.section === 'subspace' && event.method === 'FarmerVote') {
+                const [publicKey, rewardAddress, _height, _parentHash] = event.data;
+                await file.appendFile(
+                    `${blockNumber},Vote,${slot},${keyring.encodeAddress(publicKey as any)},${rewardAddress},${consensusSpace}\n`,
+                );
+            }
+        }
+
+        if (blockNumber === stopAtBlock) {
             break;
         }
 
