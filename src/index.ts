@@ -27,14 +27,6 @@ interface SubPreDigest extends Struct {
 }
 
 const types = {
-    // snapshot-2022-jan-05 doesn't have reward address
-    Solution2022Jan02: {
-        public_key: 'AccountId32',
-    },
-    SubPreDigest2022Jan02: {
-        slot: 'u64',
-        solution: 'Solution2022Jan02',
-    },
     Solution: {
         public_key: 'AccountId32',
         reward_address: 'AccountId32',
@@ -63,12 +55,6 @@ async function main(wsUrl: string, output: string) {
         types,
     });
 
-    const genesisBlockHash = await api.rpc.chain.getBlockHash(0);
-    // snapshot-2022-jan-05 doesn't have reward address
-    const preDigestType =  genesisBlockHash.toHex() === '0x6ada0792ea62bf3501abc87d92e1ce0e78ddefba66f02973de54144d12ed0d38'
-        ? 'SubPreDigest2022Jan02'
-        : 'SubPreDigest';
-
     const file = await fs.open(output, 'w');
     file.appendFile(
         `Block number,Slot,Author,Reward address,Space according to consensus\n`,
@@ -80,7 +66,7 @@ async function main(wsUrl: string, output: string) {
         const header: Header = await api.rpc.chain.getHeader(nextBlockHash);
 
         const preRuntime: SubPreDigest = api.registry.createType(
-            preDigestType,
+            'SubPreDigest',
             header.digest.logs
                 .find((digestItem) => digestItem.isPreRuntime)
                 ?.asPreRuntime![1]
