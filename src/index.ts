@@ -1,7 +1,7 @@
-import {ApiPromise, Keyring, WsProvider} from "@polkadot/api";
-import * as fs from "fs/promises";
-import {Struct, u64} from "@polkadot/types";
-import {AccountId32, EventRecord, Header} from "@polkadot/types/interfaces";
+import { ApiPromise, WsProvider } from '@polkadot/api';
+import * as fs from 'fs/promises';
+import { Struct, u64 } from '@polkadot/types';
+import { AccountId32, EventRecord, Header } from '@polkadot/types/interfaces';
 
 const stopAtBlock = process.env.STOP_AT_BLOCK ? parseInt(process.env.STOP_AT_BLOCK, 10) : 0;
 const wsUrl = process.env.WS_URL;
@@ -35,19 +35,8 @@ const types = {
     SubPreDigest: {
         slot: 'u64',
         solution: 'Solution',
-    }
-
-}
-
-function solutionRangeToSpace(solutionRange: bigint): number {
-    const MAX_U64 = (2n ** 64n) - 1n;
-    const SLOT_PROBABILITY = [1n, 6n];
-    const PIECE_SIZE = 4096n;
-
-    return Number(
-        MAX_U64 * SLOT_PROBABILITY[0] / SLOT_PROBABILITY[1] / solutionRange * PIECE_SIZE
-    );
-}
+    },
+};
 
 async function main(wsUrl: string, output: string) {
     const provider = new WsProvider(wsUrl);
@@ -55,12 +44,8 @@ async function main(wsUrl: string, output: string) {
         provider,
         types,
     });
-    const keyring = new Keyring({type: 'sr25519', ss58Format: 2254});
-
     const file = await fs.open(output, 'w');
-    file.appendFile(
-        `Block number,Authorship type,Slot,Plot public key,Reward address,Space according to consensus\n`,
-    );
+    file.appendFile(`block_number,author_type,reward_address\n`);
 
     let nextBlockHash = await api.rpc.chain.getBlockHash();
     let processedBlocks = 0;
@@ -69,20 +54,12 @@ async function main(wsUrl: string, output: string) {
 
         const preRuntime: SubPreDigest = api.registry.createType(
             'SubPreDigest',
-            header.digest.logs
-                .find((digestItem) => digestItem.isPreRuntime)
-                ?.asPreRuntime![1]
+            header.digest.logs.find(digestItem => digestItem.isPreRuntime)?.asPreRuntime![1]
         );
-        const consensusSolutionRange = (await api.query.subspace.solutionRanges.at(nextBlockHash) as any).current.toBigInt();
 
         const blockNumber = header.number.toNumber();
-        const slot = preRuntime.slot;
-        const publicKey = preRuntime.solution.public_key;
         const rewardAddress = preRuntime.solution.reward_address;
-        const consensusSpace = solutionRangeToSpace(consensusSolutionRange);
-        await file.appendFile(
-            `${blockNumber},Block,${slot},${publicKey},${rewardAddress},${consensusSpace}\n`,
-        );
+        await file.appendFile(`${blockNumber},block,${rewardAddress}\n`);
 
         let events: Array<EventRecord> = await api.query.system.events.at(nextBlockHash);
 
@@ -90,10 +67,8 @@ async function main(wsUrl: string, output: string) {
             const event = record.event;
 
             if (event.section === 'subspace' && event.method === 'FarmerVote') {
-                const [publicKey, rewardAddress, _height, _parentHash] = event.data;
-                await file.appendFile(
-                    `${blockNumber},Vote,${slot},${keyring.encodeAddress(publicKey as any)},${rewardAddress},${consensusSpace}\n`,
-                );
+                const [_, rewardAddress, _height, _parentHash] = event.data;
+                await file.appendFile(`${blockNumber},vote,${rewardAddress}\n`);
             }
         }
 
