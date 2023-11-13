@@ -50,7 +50,8 @@ function solutionRangeToSpace(solutionRange: bigint): number {
     return Number(
         MAX_U64 * SLOT_PROBABILITY[0] / SLOT_PROBABILITY[1] 
         / (MAX_PIECES_IN_SECTOR * NUM_CHUNKS / NUM_S_BUCKETS)
-        / solutionRange * PIECE_SIZE
+        / solutionRange 
+        * PIECE_SIZE * MAX_PIECES_IN_SECTOR
     );
 }
 
