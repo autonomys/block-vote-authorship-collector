@@ -42,10 +42,16 @@ const types = {
 function solutionRangeToSpace(solutionRange: bigint): number {
     const MAX_U64 = (2n ** 64n) - 1n;
     const SLOT_PROBABILITY = [1n, 6n];
-    const PIECE_SIZE = 4096n;
+    const PIECE_SIZE = 1048672n;
+    const MAX_PIECES_IN_SECTOR = 1000n;
+    const NUM_CHUNKS = (2n ** 15n);
+    const NUM_S_BUCKETS = (2n ** 16n);
 
     return Number(
-        MAX_U64 * SLOT_PROBABILITY[0] / SLOT_PROBABILITY[1] / solutionRange * PIECE_SIZE
+        MAX_U64 * SLOT_PROBABILITY[0] / SLOT_PROBABILITY[1] 
+        / (MAX_PIECES_IN_SECTOR * NUM_CHUNKS / NUM_S_BUCKETS)
+        / solutionRange 
+        * PIECE_SIZE * MAX_PIECES_IN_SECTOR
     );
 }
 
@@ -64,6 +70,7 @@ async function main(wsUrl: string, output: string) {
 
     let nextBlockHash = await api.rpc.chain.getBlockHash();
     let processedBlocks = 0;
+
     while (true) {
         const header: Header = await api.rpc.chain.getHeader(nextBlockHash);
 
