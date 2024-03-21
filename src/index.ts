@@ -1,6 +1,6 @@
 import {ApiPromise, Keyring, WsProvider} from "@polkadot/api";
 import * as fs from "fs/promises";
-import {Struct, u64} from "@polkadot/types";
+import {Struct, u64, Enum} from "@polkadot/types";
 import {AccountId32, EventRecord, Header} from "@polkadot/types/interfaces";
 
 const stopAtBlock = process.env.STOP_AT_BLOCK ? parseInt(process.env.STOP_AT_BLOCK, 10) : 0;
@@ -17,9 +17,13 @@ if (!output) {
     process.exit(2);
 }
 
-interface Solution extends Struct {
+interface SolutionV0 extends Struct {
     readonly public_key: AccountId32;
     readonly reward_address: AccountId32;
+}
+
+interface Solution extends Enum {
+    readonly V0: SolutionV0,
 }
 
 interface SubPreDigest extends Struct {
@@ -28,15 +32,19 @@ interface SubPreDigest extends Struct {
 }
 
 const types = {
-    Solution: {
+    SolutionV0: {
         public_key: 'AccountId32',
         reward_address: 'AccountId32',
+    },
+    Solution: {
+        _enum: {
+            V0: 'SolutionV0',
+        },
     },
     SubPreDigest: {
         slot: 'u64',
         solution: 'Solution',
     }
-
 }
 
 function solutionRangeToSpace(solutionRange: bigint): number {
@@ -48,9 +56,9 @@ function solutionRangeToSpace(solutionRange: bigint): number {
     const NUM_S_BUCKETS = (2n ** 16n);
 
     return Number(
-        MAX_U64 * SLOT_PROBABILITY[0] / SLOT_PROBABILITY[1] 
+        MAX_U64 / SLOT_PROBABILITY[1] * SLOT_PROBABILITY[0]
         / (MAX_PIECES_IN_SECTOR * NUM_CHUNKS / NUM_S_BUCKETS)
-        / solutionRange 
+        / solutionRange
         * PIECE_SIZE * MAX_PIECES_IN_SECTOR
     );
 }
@@ -84,8 +92,9 @@ async function main(wsUrl: string, output: string) {
 
         const blockNumber = header.number.toNumber();
         const slot = preRuntime.slot;
-        const publicKey = preRuntime.solution.public_key;
-        const rewardAddress = preRuntime.solution.reward_address;
+        const solution: SolutionV0 = (preRuntime.solution as any).asV0;
+        const publicKey = solution.public_key;
+        const rewardAddress = solution.reward_address;
         const consensusSpace = solutionRangeToSpace(consensusSolutionRange);
         await file.appendFile(
             `${blockNumber},Block,${slot},${publicKey},${rewardAddress},${consensusSpace}\n`,
