@@ -21,7 +21,10 @@ echo "reward_address,rewards" > $OUTPUT_CSV_PATH
 
 # Process the CSV, skip the header, group by `reward_address`,
 # multiply count by 0.1, and append the sorted results to the output file
-awk -F, 'NR > 1 {counts[$3] += 0.1} END {for (reward_address in counts) print reward_address "," counts[reward_address]}' $TEMP_PATH | sort -t, -k2,2nr >> $OUTPUT_CSV_PATH
+awk -F, 'NR > 1 {counts[$2] += 0.1} END {for (reward_address in counts) print reward_address "," counts[reward_address]}' $TEMP_PATH | sort -t, -k2,2nr >> $OUTPUT_CSV_PATH
+
+# awk -F, 'NR > 1 && $3 != "" {counts[$2] += 0.1} END {for (reward_address in counts) print reward_address "," counts[reward_address]}' $TEMP_PATH | sort -t, -k2,2nr >> $OUTPUT_CSV_PATH
+
 
 # Remove the temporary file
 rm "$TEMP_PATH"
