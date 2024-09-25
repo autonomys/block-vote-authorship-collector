@@ -4,6 +4,7 @@ import { Struct, u64 } from '@polkadot/types';
 import { AccountId32, EventRecord, Header } from '@polkadot/types/interfaces';
 
 const stopAtBlock = process.env.STOP_AT_BLOCK ? parseInt(process.env.STOP_AT_BLOCK, 10) : 0;
+const startAtBlock = process.env.START_AT_BLOCK ? parseInt(process.env.START_AT_BLOCK, 10) : 0;
 const wsUrl = process.env.WS_URL;
 const output = process.env.OUTPUT;
 
@@ -47,7 +48,8 @@ async function main(wsUrl: string, output: string) {
     const file = await fs.open(output, 'w');
     file.appendFile(`block_number,author_type,reward_address\n`);
 
-    let nextBlockHash = await api.rpc.chain.getBlockHash();
+    let nextBlockHash = await api.rpc.chain.getBlockHash(startAtBlock);
+    console.log(`Starting from block ${startAtBlock}`);
     let processedBlocks = 0;
     while (true) {
         const header: Header = await api.rpc.chain.getHeader(nextBlockHash);
